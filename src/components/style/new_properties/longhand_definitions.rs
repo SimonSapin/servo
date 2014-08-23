@@ -4,14 +4,26 @@
 
 #![macro_escape]
 
+
+macro_rules! four_sides {
+    ($name_prefix: ident {} $name_suffix: ident $( $rest: tt )+ ) => {
+        concat_ident!($name_prefix, top, $name_suffix) $( $rest )+
+        concat_ident!($name_prefix, right, $name_suffix) $( $rest )+
+        concat_ident!($name_prefix, bottom, $name_suffix) $( $rest )+
+        concat_ident!($name_prefix, left, $name_suffix) $( $rest )+
+    }
+}
+
+
 macro_rules! with_longhand_definitions { ($macro: ident) => { $macro! {
 
 // Start of longhand definitions
 
-border_top_color {
+// error: no rules expected the token `!`
+four_sides!{ border_ {} _color {
     SpecifiedValue = specified::CSSColor;
     mod private {}
-}
+}}
 border_top_style {
     SpecifiedValue = self::private::BroderStyle;
 
@@ -29,10 +41,6 @@ border_top_width {
     mod private {}
 }
 
-border_left_color {
-    SpecifiedValue = specified::CSSColor;
-    mod private {}
-}
 border_left_style {
     SpecifiedValue = self::private::BroderStyle;
 
