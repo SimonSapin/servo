@@ -4,13 +4,58 @@
 
 #![crate_name = "macros"]
 #![crate_type = "rlib"]
+#![crate_type = "dylib"]
 
-#![feature(macro_rules)]
+#![feature(macro_rules, plugin_registrar)]
 
 //! Exports macros for use in other Servo crates.
 
 #[cfg(test)]
 extern crate sync;
+
+extern crate rustc;
+extern crate syntax;
+ 
+use syntax::ast;
+use syntax::codemap::Span;
+use syntax::ext::base;
+use syntax::ext::base::{ExtCtxt, MacResult, MacPat};
+use syntax::ext::build::AstBuilder;
+use syntax::parse::token;
+use rustc::plugin::Registry;
+use std::gc::GC;
+
+
+#[plugin_registrar]
+pub fn plugin_registrar(reg: &mut Registry) {
+    reg.register_macro("ident_to_css_name", expand_ident_to_css_name)
+}
+
+fn expand_ident_to_css_name(cx: &mut ExtCtxt, sp: Span, tts: &[ast::TokenTree])
+                            -> Box<base::MacResult> {
+    let mut tts = tts.iter();
+    match tts.next() {
+        Some(&ast::TTTok(_, token::IDENT(ident, _))) => {
+            if tts.next().is_none() {
+                let new_value = token::get_ident(ident).get().replace("_", "-");
+                let new_ident = token::intern_and_get_ident(new_value.as_slice());
+
+                MacPat::new(box(GC) ast::Pat {
+                    id: ast::DUMMY_NODE_ID,
+                    node: ast::PatLit(cx.expr_str(sp, new_ident)),
+                    span: sp,
+                })
+            } else {
+                cx.span_err(sp, "Expected 1 argument, found more");
+                base::DummyResult::any(sp)
+            }
+        }
+        _ => {
+            cx.span_err(sp, "Expected ident argument");
+            base::DummyResult::any(sp)
+        }
+    }
+}
 
 
 #[macro_export]

@@ -52,3 +52,6 @@ mod node;
 mod media_queries;
 mod parsing_utils;
 mod font_face;
+
+
+pub mod new_properties;
