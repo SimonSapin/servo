@@ -71,20 +71,20 @@ static K: isize = 4;
 // The size in question is 1 << MIN_BITS
 static MIN_BITS: usize = 7;
 
-struct Deque<T> {
+struct Deque<T: Send + 'static> {
     bottom: AtomicIsize,
     top: AtomicIsize,
     array: AtomicPtr<Buffer<T>>,
     pool: BufferPool<T>,
 }
 
-unsafe impl<T> Send for Deque<T> {}
+unsafe impl<T: Send> Send for Deque<T> {}
 
 /// Worker half of the work-stealing deque. This worker has exclusive access to
 /// one side of the deque, and uses `push` and `pop` method to manipulate it.
 ///
 /// There may only be one worker per deque.
-pub struct Worker<T> {
+pub struct Worker<T: Send + 'static> {
     deque: Arc<Deque<T>>,
 }
 
@@ -93,7 +93,7 @@ impl<T> !marker::Sync for Worker<T> {}
 /// The stealing half of the work-stealing deque. Stealers have access to the
 /// opposite end of the deque from the worker, and they only have access to the
 /// `steal` method.
-pub struct Stealer<T> {
+pub struct Stealer<T: Send + 'static> {
     deque: Arc<Deque<T>>,
 }
 
@@ -118,7 +118,7 @@ pub enum Stolen<T> {
 /// This data structure is protected by a mutex, but it is rarely used. Deques
 /// will only use this structure when allocating a new buffer or deallocating a
 /// previous one.
-pub struct BufferPool<T> {
+pub struct BufferPool<T: Send> {
     // FIXME: This entire file was copied from std::sync::deque before it was removed,
     // I converted `Exclusive` to `Mutex` here, but that might not be ideal
     pool: Arc<Mutex<Vec<Box<Buffer<T>>>>>,
@@ -139,7 +139,7 @@ pub struct BufferPool<T> {
 ///
 ///   2. We can certainly avoid bounds checks using *T instead of Vec<T>, although
 ///      LLVM is probably pretty good at doing this already.
-struct Buffer<T> {
+struct Buffer<T: Send> {
     storage: *const T,
     log_size: usize,
 }
