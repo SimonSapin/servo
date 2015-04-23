@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::cmp::{PartialOrd, PartialEq, Ordering};
-use std::iter::range_step;
 
 /// FIXME(pcwalton): Workaround for lack of unboxed closures. This is called in
 /// performance-critical code, so a closure is insufficient.
@@ -66,7 +65,7 @@ impl<T:PartialEq + PartialOrd + Ord> Comparator<T,T> for DefaultComparator {
 // TODO(pcwalton): Speed up with SIMD, or better yet, find some way to not do this.
 pub fn byte_swap(data: &mut [u8]) {
     let length = data.len();
-    for i in range_step(0, length, 4) {
+    for i in (0..length).step_by(4) {
         let r = data[i + 2];
         data[i + 2] = data[i + 0];
         data[i + 0] = r;

@@ -15,7 +15,7 @@ extern crate webdriver;
 extern crate msg;
 extern crate url;
 extern crate util;
-extern crate "rustc-serialize" as rustc_serialize;
+extern crate rustc_serialize;
 extern crate uuid;
 
 use msg::constellation_msg::{ConstellationChan, LoadData};

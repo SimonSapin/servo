@@ -25,19 +25,17 @@
 extern crate azure;
 extern crate alloc;
 #[macro_use] extern crate bitflags;
-extern crate cssparser;
+#[macro_use] extern crate cssparser;
 extern crate geom;
 extern crate getopts;
 extern crate layers;
 extern crate libc;
-#[no_link] #[macro_use] extern crate cssparser;
+extern crate num_cpus;
 extern crate rand;
-extern crate "rustc-serialize" as rustc_serialize;
-extern crate text_writer;
+extern crate rustc_serialize;
 extern crate selectors;
-extern crate string_cache;
-
-pub use selectors::smallvec;
+extern crate smallvec;
+pub extern crate string_cache;
 
 use std::sync::Arc;
 

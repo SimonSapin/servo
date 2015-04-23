@@ -24,7 +24,7 @@ extern crate log;
 extern crate collections;
 extern crate core;
 extern crate devtools_traits;
-extern crate "rustc-serialize" as rustc_serialize;
+extern crate rustc_serialize;
 extern crate msg;
 extern crate time;
 extern crate util;

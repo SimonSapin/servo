@@ -37,7 +37,7 @@ extern crate profile;
 #[macro_use]
 extern crate util;
 
-extern crate "rustc-serialize" as rustc_serialize;
+extern crate rustc_serialize;
 extern crate alloc;
 extern crate azure;
 extern crate canvas;

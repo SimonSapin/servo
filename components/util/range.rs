@@ -8,6 +8,7 @@ use std::fmt;
 use std::num;
 use std::num::Int;
 use std::marker::PhantomData;
+use std::ops;
 
 /// An index type to be used by a `Range`
 pub trait RangeIndex: Int + fmt::Debug {
@@ -92,6 +93,15 @@ macro_rules! int_range_index {
 
             #[inline]
             fn add(self, other: $Self_) -> $Self_ {
+                $Self_(self.get() + other.get())
+            }
+        }
+
+        impl<'a> Add<&'a $Self_> for &'a $Self_ {
+            type Output = $Self_;
+
+            #[inline]
+            fn add(self, other: &'a $Self_) -> $Self_ {
                 $Self_(self.get() + other.get())
             }
         }
@@ -221,6 +231,15 @@ macro_rules! int_range_index {
                 ($Self_(x), b)
             }
         }
+
+        impl ::std::iter::Step for $Self_ {
+            fn step(&self, by: &Self) -> Option<Self> {
+                self.get().step(by.get()).map($Self_)
+            }
+            fn steps_between(start: &Self, end: &Self, by: &Self) -> Option<usize> {
+                self.get().steps_between(end.get(), by.get())
+            }
+        }
     )
 }
 
@@ -239,20 +258,21 @@ impl<I: RangeIndex> fmt::Debug for Range<I> {
 
 /// An iterator over each index in a range
 pub struct EachIndex<T, I> {
-    it: iter::Range<T>,
+    it: ops::Range<T>,
     phantom: PhantomData<I>,
 }
 
 pub fn each_index<T: Int, I: RangeIndex<Index=T>>(start: I, stop: I) -> EachIndex<T, I> {
-    EachIndex { it: iter::range(start.get(), stop.get()), phantom: PhantomData }
+    EachIndex { it: start.get()..stop.get(), phantom: PhantomData }
 }
 
-impl<T: Int, I: RangeIndex<Index=T>> Iterator for EachIndex<T, I> {
+impl<T: Int, I: RangeIndex<Index=T>> Iterator for EachIndex<T, I>
+where T: Int + num::One + iter::Step, for<'a> &'a T: ops::Add<&'a T, Output = T> {
     type Item = I;
 
     #[inline]
     fn next(&mut self) -> Option<I> {
-        self.it.next().map(|i| RangeIndex::new(i))
+        self.it.next().map(RangeIndex::new)
     }
 
     #[inline]

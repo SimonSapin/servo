@@ -37,7 +37,7 @@ source = "git+https://github.com/tomaka/android-rs-glue#fa1eaa1d1857e0fa93832c5c
 [[package]]
 name = "azure"
 version = "0.1.0"
-source = "git+https://github.com/servo/rust-azure#c865784c238957a94cfdf1dc2fac60724470e1c4"
+source = "git+https://github.com/servo/rust-azure#52c00fa279089ef49070b162369a08ce0e78c295"
 dependencies = [
  "core_foundation 0.1.0 (git+https://github.com/servo/rust-core-foundation)",
  "core_graphics 0.1.0 (git+https://github.com/servo/rust-core-graphics)",
@@ -81,7 +81,7 @@ dependencies = [
 [[package]]
 name = "clipboard"
 version = "0.0.1"
-source = "git+https://github.com/aweinstock314/rust-x11-clipboard#eae9596e7e407c8b6037b934c1a8e42a309423fd"
+source = "git+https://github.com/servo/rust-x11-clipboard#43afb218871e3148758c603f335576cb101cb1fa"
 dependencies = [
  "libc 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "xlib 0.1.0 (git+https://github.com/servo/rust-xlib)",
@@ -110,7 +110,7 @@ name = "compositing"
 version = "0.0.1"
 dependencies = [
  "azure 0.1.0 (git+https://github.com/servo/rust-azure)",
- "clipboard 0.0.1 (git+https://github.com/aweinstock314/rust-x11-clipboard)",
+ "clipboard 0.0.1 (git+https://github.com/servo/rust-x11-clipboard)",
  "core_graphics 0.1.0 (git+https://github.com/servo/rust-core-graphics)",
  "core_text 0.1.0 (git+https://github.com/servo/rust-core-text)",
  "devtools_traits 0.0.1",
@@ -163,10 +163,11 @@ dependencies = [
 [[package]]
 name = "core_text"
 version = "0.1.0"
-source = "git+https://github.com/servo/rust-core-text#57605861d6d61c35af7f18693ebb0306f4368d34"
+source = "git+https://github.com/servo/rust-core-text#bc6994c3765f0660e9c04f5488ba194a9354e8fb"
 dependencies = [
  "core_foundation 0.1.0 (git+https://github.com/servo/rust-core-foundation)",
  "core_graphics 0.1.0 (git+https://github.com/servo/rust-core-graphics)",
+ "libc 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -520,12 +521,13 @@ dependencies = [
 [[package]]
 name = "io_surface"
 version = "0.1.0"
-source = "git+https://github.com/servo/rust-io-surface#0860c8c4e460a85734f3ab8f4a86e5a19e9fb2e3"
+source = "git+https://github.com/servo/rust-io-surface#ab0ebd4ea6dd953c1581d9486b9e80ecf3c7577d"
 dependencies = [
  "cgl 0.0.1 (git+https://github.com/servo/rust-cgl)",
  "core_foundation 0.1.0 (git+https://github.com/servo/rust-core-foundation)",
  "geom 0.1.0 (git+https://github.com/servo/rust-geom)",
  "gleam 0.0.1 (git+https://github.com/servo/gleam)",
+ "libc 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -555,7 +557,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "layers"
 version = "0.1.0"
-source = "git+https://github.com/servo/rust-layers#9c8d1194eb1d55fcec182a0b56b84fc59fbe914e"
+source = "git+https://github.com/servo/rust-layers#6eaa0617597967c7f76d76fff47b8133aa53d0b6"
 dependencies = [
  "azure 0.1.0 (git+https://github.com/servo/rust-azure)",
  "cgl 0.0.1 (git+https://github.com/servo/rust-cgl)",
@@ -566,6 +568,8 @@ dependencies = [
  "glx 0.0.1 (git+https://github.com/servo/rust-glx)",
  "io_surface 0.1.0 (git+https://github.com/servo/rust-io-surface)",
  "libc 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-serialize 0.3.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "skia 0.0.20130412 (git+https://github.com/servo/skia)",
  "xlib 0.1.0 (git+https://github.com/servo/rust-xlib)",
 ]
