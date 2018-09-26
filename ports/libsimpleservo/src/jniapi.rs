@@ -13,7 +13,6 @@ use jni::sys::{jboolean, jfloat, jint, jstring, JNI_TRUE};
 use log::Level;
 use std;
 use std::borrow::Cow;
-use std::ffi::CString;
 use std::mem;
 use std::os::raw::{c_char, c_int, c_long, c_void};
 use std::ptr;
@@ -74,7 +73,7 @@ pub fn Java_com_mozilla_servoview_JNIServo_init(
             "canvas::webgl_thread",
         ];
         let mut filter = Filter::default().with_min_level(Level::Debug);
-        for module in &filters {
+        for &module in &filters {
             filter = filter.with_allowed_module_path(module);
         }
         let log_str = env.get_string(log_str).ok();
@@ -477,52 +476,58 @@ fn redirect_stdout_to_logcat() {
         // Then we spawn a thread whose only job is to read from the other side of the
         // pipe and redirect to the logs.
         extern fn logging_thread(descriptor: *mut c_void) -> *mut c_void {
-            unsafe {
-                let descriptor = descriptor as usize as c_int;
-                let mut buf: Vec<c_char> = Vec::with_capacity(512);
-                let mut cursor = 0_usize;
+            let descriptor = descriptor as usize as c_int;
+            const BUF_LENGTH: usize = 512;
+            let mut buf = vec![b'\0' as c_char; BUF_LENGTH];
 
-                // TODO: shouldn't use Rust stdlib
-                let tag = CString::new("simpleservo").unwrap();
-                let tag = tag.as_ptr();
+            // Always keep at least one null terminator
+            const BUF_AVAILABLE: usize = BUF_LENGTH - 1;
+            let buf = &mut buf[..BUF_AVAILABLE];
 
-                loop {
-                    let result = read(descriptor, buf.as_mut_ptr().offset(cursor as isize) as *mut _,
-                                      buf.capacity() - 1 - cursor);
+            let mut cursor = 0_usize;
 
-                    let len = if result == 0 {
-                        return ptr::null_mut();
-                    } else if result < 0 {
-                        return ptr::null_mut(); /* TODO: report problem */
-                    } else {
-                        result as usize + cursor
-                    };
+            let tag = b"simpleservo\0".as_ptr() as _;
 
-                    buf.set_len(len);
-
-                    if let Some(last_newline_pos) = buf.iter().rposition(|&c| c == b'\n' as c_char) {
-                        buf[last_newline_pos] = b'\0' as c_char;
-                        __android_log_write(3, tag, buf.as_ptr());
-                        if last_newline_pos < buf.len() - 1 {
-                            let last_newline_pos = last_newline_pos + 1;
-                            cursor = buf.len() - last_newline_pos;
-                            debug_assert!(cursor < buf.capacity());
-                            for j in 0..cursor as usize {
-                                buf[j] = buf[last_newline_pos + j];
-                            }
-                            buf[cursor] = b'\0' as c_char;
-                            buf.set_len(cursor + 1);
-                        } else {
-                            cursor = 0;
-                        }
-                    } else {
-                        cursor = buf.len();
+            loop {
+                let result = {
+                    let read_into = &mut buf[cursor..];
+                    unsafe {
+                        read(descriptor, read_into.as_mut_ptr() as *mut _, read_into.len())
                     }
-                    if cursor == buf.capacity() - 1 {
+                };
+
+                let end = if result == 0 {
+                    return ptr::null_mut();
+                } else if result < 0 {
+                    return ptr::null_mut(); /* TODO: report problem */
+                } else {
+                    result as usize + cursor
+                };
+
+                if let Some(last_newline_pos) = buf.iter().rposition(|&c| c == b'\n' as c_char) {
+                    buf[last_newline_pos] = b'\0' as c_char;
+                    unsafe {
                         __android_log_write(3, tag, buf.as_ptr());
-                        buf.set_len(0);
+                    }
+                    if last_newline_pos < end - 1 {
+                        let pos_after_newline = last_newline_pos + 1;
+                        let len_not_logged_yet = buf[pos_after_newline..].len();
+                        for j in 0..len_not_logged_yet as usize {
+                            buf[j] = buf[pos_after_newline + j];
+                        }
+                        cursor = len_not_logged_yet;
+                    } else {
                         cursor = 0;
                     }
+                } else if cursor == BUF_AVAILABLE {
+                    // No newline found but the buffer is full, flush it anyway.
+                    // `buf.as_ptr()` is null-terminated by BUF_LENGTH being 1 than BUF_AVAILABLE.
+                    unsafe {
+                        __android_log_write(3, tag, buf.as_ptr());
+                    }
+                    cursor = 0;
+                } else {
+                    cursor = end;
                 }
             }
         }
