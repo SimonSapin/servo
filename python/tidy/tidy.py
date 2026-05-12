@@ -1083,6 +1083,7 @@ def run_coauthors_check() -> int:
         print(f'\r  | Using pull request body: "{pull_request_body[:50]}[…]"')
     if commit_count:
         print(f"\r  | Using commit count: {commit_count}")
+    print(f"\r  | Dummy PR")
 
     log_format = (
         "commit %H%n"
