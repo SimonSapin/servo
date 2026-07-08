@@ -234,9 +234,7 @@ impl<'b> Iterator for UnrootedPrecedingNodeIterator<'b> {
             current.get_parent_node_unrooted(self.no_gc)
         };
 
-        self.current
-            .as_ref()
-            .map(|node| UnrootedDom::from_dom((*node).clone(), self.no_gc))
+        self.current.clone()
     }
 }
 
@@ -417,12 +415,8 @@ pub(crate) struct UnrootedTreeIterator<'b> {
 }
 
 impl<'b> UnrootedTreeIterator<'b> {
-    pub(crate) fn new(
-        root: &Node,
-        shadow_including: ShadowIncluding,
-        no_gc: &'b NoGC,
-    ) -> UnrootedTreeIterator<'b> {
-        UnrootedTreeIterator {
+    pub(crate) fn new(root: &Node, shadow_including: ShadowIncluding, no_gc: &'b NoGC) -> Self {
+        Self {
             current: Some(UnrootedDom::from_dom(Dom::from_ref(root), no_gc)),
             depth: 0,
             shadow_including,
@@ -433,7 +427,7 @@ impl<'b> UnrootedTreeIterator<'b> {
     pub(crate) fn next_skipping_children(&mut self) -> Option<UnrootedDom<'b, Node>> {
         let current = self.current.take()?;
 
-        let iter = current.inclusive_ancestors(self.shadow_including);
+        let iter = current.inclusive_ancestors_unrooted(self.no_gc, self.shadow_including);
 
         for ancestor in iter {
             if self.depth == 0 {
@@ -451,7 +445,7 @@ impl<'b> UnrootedTreeIterator<'b> {
                 // Shadow roots don't have sibling, so after we're done traversing
                 // one we jump to the first child of the host
                 let child_option = shadow_root
-                    .Host()
+                    .host_unrooted(self.no_gc)
                     .upcast::<Node>()
                     .get_first_child_unrooted(self.no_gc);
 
@@ -473,18 +467,15 @@ impl<'b> Iterator for UnrootedTreeIterator<'b> {
 
     /// <https://dom.spec.whatwg.org/#concept-tree-order>
     /// <https://dom.spec.whatwg.org/#concept-shadow-including-tree-order>
-    fn next(&mut self) -> Option<UnrootedDom<'b, Node>> {
+    fn next(&mut self) -> Option<Self::Item> {
         let current = self.current.take()?;
 
         // Handle a potential shadow root on the element
         if let Some(element) = current.downcast::<Element>() &&
-            let Some(shadow_root) = element.shadow_root() &&
+            let Some(shadow_root) = element.shadow_root_unrooted(self.no_gc) &&
             self.shadow_including == ShadowIncluding::Yes
         {
-            self.current = Some(UnrootedDom::from_dom(
-                Dom::from_ref(shadow_root.upcast::<Node>()),
-                self.no_gc,
-            ));
+            self.current = Some(UnrootedDom::upcast(shadow_root));
             self.depth += 1;
             return Some(current);
         }
@@ -496,8 +487,108 @@ impl<'b> Iterator for UnrootedTreeIterator<'b> {
             return Some(current);
         };
 
-        // current is empty.
-        let _ = self.current.insert(current);
+        // Restore `self.current` emptied by `.take()`
+        self.current = Some(current);
         self.next_skipping_children()
+    }
+}
+
+/// An efficient TreeIterator because it skips rooting if there are no GC pauses.
+///
+/// Use this if you have a `&JSContext` or `NoGC`.
+///
+/// Normally we need to root every `Node` we come across as we do not know if we will have a GC pause.
+/// This does not root the required children. Taking a `&NoGC` enforces that there is no `&mut JSContext`
+/// while this iterator is alive.
+#[cfg_attr(crown, crown::unrooted_must_root_lint::allow_unrooted_interior)]
+pub(crate) struct UnrootedTreePrePostIterator<'b> {
+    next: Option<PrePost<UnrootedDom<'b, Node>>>,
+    depth: usize,
+    shadow_including: ShadowIncluding,
+    /// This is unused and only used for lifetime guarantee of NoGC
+    no_gc: &'b NoGC,
+}
+
+pub(crate) enum PrePost<T> {
+    Pre(T),
+    Post(T),
+}
+
+impl<'b> UnrootedTreePrePostIterator<'b> {
+    pub(crate) fn new(root: &Node, shadow_including: ShadowIncluding, no_gc: &'b NoGC) -> Self {
+        Self {
+            next: Some(PrePost::Pre(UnrootedDom::from_dom(
+                Dom::from_ref(root),
+                no_gc,
+            ))),
+            depth: 0,
+            shadow_including,
+            no_gc,
+        }
+    }
+
+    fn next_next(
+        &mut self,
+        current: &PrePost<UnrootedDom<'b, Node>>,
+    ) -> Option<PrePost<UnrootedDom<'b, Node>>> {
+        match current {
+            PrePost::Pre(current) => {
+                if self.shadow_including == ShadowIncluding::Yes &&
+                    let Some(element) = current.downcast::<Element>() &&
+                    let Some(shadow_root) = element.shadow_root_unrooted(self.no_gc)
+                {
+                    // Handle a potential shadow root on the element
+                    self.depth += 1;
+                    return Some(PrePost::Pre(UnrootedDom::upcast(shadow_root)));
+                }
+
+                let first_child_option = current.get_first_child_unrooted(self.no_gc);
+                if let Some(first_child) = first_child_option {
+                    self.depth += 1;
+                    return Some(PrePost::Pre(first_child));
+                }
+
+                Some(PrePost::Post(current.clone()))
+            },
+            PrePost::Post(current) => {
+                if self.depth == 0 {
+                    return None;
+                }
+
+                let next_sibling_option = current.get_next_sibling_unrooted(self.no_gc);
+                if let Some(next_sibling) = next_sibling_option {
+                    return Some(PrePost::Pre(next_sibling));
+                }
+
+                if let Some(shadow_root) = current.downcast::<ShadowRoot>() {
+                    let host = UnrootedDom::upcast::<Node>(shadow_root.host_unrooted(self.no_gc));
+                    // Shadow roots don't have sibling, so after we're done traversing
+                    // one we jump to the first child of the host
+                    let child_option = host.get_first_child_unrooted(self.no_gc);
+                    if let Some(child) = child_option {
+                        return Some(PrePost::Pre(child));
+                    } else {
+                        self.depth -= 1;
+                        return Some(PrePost::Post(host));
+                    }
+                }
+
+                let parent = current
+                    .get_parent_node_unrooted(self.no_gc)
+                    .expect("missing parent node at depth > 0");
+                self.depth -= 1;
+                Some(PrePost::Post(parent))
+            },
+        }
+    }
+}
+
+impl<'b> Iterator for UnrootedTreePrePostIterator<'b> {
+    type Item = PrePost<UnrootedDom<'b, Node>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.next.take()?;
+        self.next = self.next_next(&current);
+        Some(current)
     }
 }

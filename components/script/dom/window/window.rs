@@ -2615,6 +2615,10 @@ impl Window {
         // layout runs, so that the map can gather their elements in DOM order.
         document.id_map().resolve_all(cx.no_gc(), document.upcast());
 
+        if let Some(selection) = document.GetSelection(cx) {
+            selection.update_node_flags(cx.no_gc());
+        }
+
         let document_context = self.web_font_context(cx.no_gc());
 
         let rooted_nodes_for_accessibility_integrity_check =

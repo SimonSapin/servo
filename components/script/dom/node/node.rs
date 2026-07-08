@@ -101,6 +101,7 @@ use crate::dom::html::htmlslotelement::{HTMLSlotElement, Slottable};
 use crate::dom::html::htmlstyleelement::HTMLStyleElement;
 use crate::dom::iterators::{
     ShadowIncluding, UnrootedFollowingNodeIterator, UnrootedPrecedingNodeIterator,
+    UnrootedTreePrePostIterator,
 };
 use crate::dom::mutationobserver::{Mutation, MutationObserver, RegisteredObserver};
 use crate::dom::node::iterators::{
@@ -230,6 +231,24 @@ bitflags! {
 
         /// Whether this node has a pseudo-element style which uses `attr()` in the `content` attribute.
         const USES_ATTR_IN_CONTENT_ATTRIBUTE = 1 << 13;
+
+        /// This bit should be set if and only if:
+        /// * The document this node is associated with has a [Document selection]
+        /// * That Document selection has a [range]
+        /// * The position of the boundary point *(this node, 0)* is
+        ///   - After or equal to the range’s start
+        ///   - Before or equal to the range’s end
+        ///
+        /// [Document selection]: https://w3c.github.io/selection-api/#dfn-selection
+        /// [range]: https://dom.spec.whatwg.org/#ranges
+        /// [position]: https://dom.spec.whatwg.org/#concept-range-bp-position
+        const NODE_START_OVERLAPS_SELECTION = 1 << 14;
+
+        /// Same as `NODE_START_OVERLAPS_SELECTION` but with the boundary point
+        /// *(this node, its [length])*
+        ///
+        /// [length]: https://dom.spec.whatwg.org/#concept-node-length
+        const NODE_END_OVERLAPS_SELECTION = 1 << 15;
     }
 }
 
@@ -843,6 +862,14 @@ impl Node {
         self.flags.set(flags);
     }
 
+    pub(crate) fn get_flags(&self) -> NodeFlags {
+        self.flags.get()
+    }
+
+    pub(crate) fn set_flags(&self, new_flags: NodeFlags) {
+        self.flags.set(new_flags)
+    }
+
     // FIXME(emilio): This and the function below should move to Element.
     pub(crate) fn note_dirty_descendants(&self) {
         self.owner_doc().note_node_with_dirty_descendants(self);
@@ -918,13 +945,24 @@ impl Node {
         TreeIterator::new(self, shadow_including)
     }
 
-    /// Iterates over this node and all its descendants, in preorder. We take &NoGC to prevent GC which allows us to avoid rooting.
+    /// Iterates over this node and all its descendants, in preorder.
+    /// We take &NoGC to prevent GC which allows us to avoid rooting.
     pub(crate) fn traverse_preorder_non_rooting<'b>(
         &self,
         no_gc: &'b NoGC,
         shadow_including: ShadowIncluding,
     ) -> UnrootedTreeIterator<'b> {
         UnrootedTreeIterator::new(self, shadow_including, no_gc)
+    }
+
+    /// Iterates over this node and all its descendants, in pre- **and** post-order.
+    /// We take &NoGC to prevent GC which allows us to avoid rooting.
+    pub(crate) fn traverse_prepostorder_non_rooting<'b>(
+        &self,
+        no_gc: &'b NoGC,
+        shadow_including: ShadowIncluding,
+    ) -> UnrootedTreePrePostIterator<'b> {
+        UnrootedTreePrePostIterator::new(self, shadow_including, no_gc)
     }
 
     pub(crate) fn inclusively_following_siblings(
@@ -1673,7 +1711,7 @@ impl Node {
                     let Some(shadow_root) = n.downcast::<ShadowRoot>()
                 {
                     return Some(UnrootedDom::from_dom(
-                        Dom::from_ref(shadow_root.Host().upcast::<Node>()),
+                        Dom::from_ref(shadow_root.host_unrooted(no_gc).upcast::<Node>()),
                         no_gc,
                     ));
                 }

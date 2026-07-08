@@ -63,6 +63,18 @@ impl<T: DomObject> MutDom<T> {
         assert_in_script();
         unsafe { DomRoot::from_ref(&*ptr::read(self.val.get())) }
     }
+
+    /// Get the `DomObject` without rooting it. Constructing an UnrootedDom. This is safe
+    /// as we take a reference to NoGC and bound the lifetime by NoGC bound. This implies that
+    /// while the `UnrootedDom` is alive we do not have a GC run.
+    #[cfg_attr(crown, expect(crown::unrooted_must_root))]
+    pub fn get_unrooted<'a>(&self, no_gc: &'a NoGC) -> UnrootedDom<'a, T> {
+        assert_in_script();
+        UnrootedDom {
+            inner: unsafe { ptr::read(self.val.get()) },
+            no_gc,
+        }
+    }
 }
 
 impl<T: DomObject> MallocSizeOf for MutDom<T> {
@@ -84,12 +96,22 @@ impl<T: DomObject + PartialEq> PartialEq<T> for MutDom<T> {
     }
 }
 
-/// A struct to make Unrooted Dom objects work. By taking a no_gc as reference, we ensure that the lifetime of this object
+/// A struct to make Unrooted Dom objects work.
+/// By taking a no_gc as reference, we ensure that the lifetime of this object
 /// is bounded by the lifetime of NoGC which enforces no gc happening.
 #[cfg_attr(crown, crown::unrooted_must_root_lint::allow_unrooted_interior)]
 pub struct UnrootedDom<'a, T: DomObject> {
     inner: Dom<T>,
     no_gc: &'a NoGC,
+}
+
+impl<'a, T: DomObject> Clone for UnrootedDom<'a, T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            no_gc: self.no_gc,
+        }
+    }
 }
 
 impl<'a, T: DomObject> UnrootedDom<'a, T> {

@@ -310,11 +310,11 @@ impl Range {
         &self.abstract_range
     }
 
-    fn start(&self) -> &BoundaryPoint {
+    pub(crate) fn start(&self) -> &BoundaryPoint {
         self.abstract_range().start()
     }
 
-    fn end(&self) -> &BoundaryPoint {
+    pub(crate) fn end(&self) -> &BoundaryPoint {
         self.abstract_range().end()
     }
 

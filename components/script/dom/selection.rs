@@ -7,8 +7,11 @@ use std::cmp::Ordering;
 
 use dom_struct::dom_struct;
 use js::context::{JSContext, NoGC};
+use script_bindings::codegen::GenericBindings::CharacterDataBinding::CharacterDataMethods as _;
+use script_bindings::dom::UnrootedDom;
 use script_bindings::reflector::{Reflector, reflect_dom_object_with_cx};
 
+use super::iterators::ShadowIncluding;
 use crate::dom::abstractrange::bp_position;
 use crate::dom::bindings::codegen::Bindings::NodeBinding::{GetRootNodeOptions, NodeMethods};
 use crate::dom::bindings::codegen::Bindings::RangeBinding::RangeMethods;
@@ -21,8 +24,10 @@ use crate::dom::bindings::root::{Dom, DomRoot, MutNullableDom};
 use crate::dom::bindings::str::DOMString;
 use crate::dom::document::Document;
 use crate::dom::eventtarget::EventTarget;
+use crate::dom::iterators::PrePost;
 use crate::dom::node::{Node, NodeTraits};
 use crate::dom::range::Range;
+use crate::dom::{CharacterData, NodeDamage, NodeFlags};
 
 #[derive(Clone, Copy, JSTraceable, MallocSizeOf)]
 enum Direction {
@@ -193,6 +198,109 @@ impl Selection {
                 _ => range.start_offset(),
             })
             .unwrap_or(0)
+    }
+
+    pub(crate) fn update_node_flags(&self, no_gc: &NoGC) {
+        // TODO: find some smaller subtree based on dirty roots
+        let affected_subtree = self.document.upcast::<Node>();
+
+        let Some(range) = self.range.get_unrooted(no_gc) else {
+            // No selection range, unset all flags
+            for node in affected_subtree.traverse_preorder_non_rooting(no_gc, ShadowIncluding::Yes)
+            {
+                let mut flags = node.get_flags();
+                let either_flag = NodeFlags::NODE_START_OVERLAPS_SELECTION |
+                    NodeFlags::NODE_END_OVERLAPS_SELECTION;
+                if flags.intersects(either_flag) {
+                    flags.remove(either_flag);
+                    node.set_flags(flags);
+                    node.dirty(NodeDamage::ContentOrHeritage);
+                }
+            }
+            return;
+        };
+
+        struct BoundaryPoint<'a> {
+            range_node: UnrootedDom<'a, Node>,
+            range_offset: u32,
+            current_offset_in_range_node: u32,
+            reached: bool,
+        }
+        let boundary = |boundary: &crate::dom::abstractrange::BoundaryPoint| {
+            let node = boundary.node().get_unrooted(no_gc);
+            BoundaryPoint {
+                range_node: node,
+                range_offset: boundary.get_offset(),
+                current_offset_in_range_node: 0,
+                reached: false,
+            }
+        };
+        let mut start = boundary(range.start());
+        let mut end = boundary(range.end());
+        for entry in affected_subtree.traverse_prepostorder_non_rooting(no_gc, ShadowIncluding::Yes)
+        {
+            let (PrePost::Pre(node) | PrePost::Post(node)) = &entry;
+            let update_flag = |start: &BoundaryPoint, end: &BoundaryPoint, flag: NodeFlags| {
+                let overlaps = start.reached && !end.reached;
+                if node.get_flag(flag) != overlaps {
+                    node.set_flag(flag, overlaps);
+                    node.dirty(NodeDamage::ContentOrHeritage);
+                }
+            };
+
+            if let Some(character_data) = node.downcast::<CharacterData>() {
+                match &entry {
+                    PrePost::Pre(_) => {
+                        if start.range_node == *node && start.range_offset == 0 {
+                            start.reached = true
+                        }
+
+                        update_flag(&start, &end, NodeFlags::NODE_START_OVERLAPS_SELECTION);
+
+                        if start.range_node == *node {
+                            // start.range_offset > 0
+                            start.reached = true
+                        }
+                    },
+                    PrePost::Post(_) => {
+                        if end.range_node == *node && end.range_offset < character_data.Length() {
+                            end.reached = true
+                        }
+
+                        update_flag(&start, &end, NodeFlags::NODE_END_OVERLAPS_SELECTION);
+
+                        if end.range_node == *node {
+                            // end.range_offset == character_data.Length()
+                            end.reached = true
+                        }
+                    },
+                }
+                continue;
+            }
+
+            // Node type other than CharacterData
+            let parent = node.get_parent_node_unrooted(no_gc);
+            let update_boundary = |boundary: &mut BoundaryPoint<'_>| {
+                if !boundary.reached && parent.as_ref() == Some(&boundary.range_node) {
+                    if boundary.current_offset_in_range_node == boundary.range_offset {
+                        boundary.reached = true
+                    } else {
+                        boundary.current_offset_in_range_node += 1;
+                    }
+                }
+            };
+
+            match &entry {
+                PrePost::Pre(_) => {
+                    update_boundary(&mut start);
+                    update_flag(&start, &end, NodeFlags::NODE_START_OVERLAPS_SELECTION);
+                },
+                PrePost::Post(_) => {
+                    update_flag(&start, &end, NodeFlags::NODE_END_OVERLAPS_SELECTION);
+                    update_boundary(&mut end);
+                },
+            }
+        }
     }
 }
 

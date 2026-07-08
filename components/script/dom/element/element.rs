@@ -20,7 +20,7 @@ use euclid::Rect;
 use html5ever::serialize::TraversalScope;
 use html5ever::serialize::TraversalScope::{ChildrenOnly, IncludeNode};
 use html5ever::{LocalName, Namespace, Prefix, QualName, local_name, namespace_prefix, ns};
-use js::context::JSContext;
+use js::context::{JSContext, NoGC};
 use js::jsapi::{Heap, JSObject};
 use js::jsval::JSVal;
 use js::realm::CurrentRealm;
@@ -31,6 +31,7 @@ use net_traits::request::{CorsSettings, CredentialsMode};
 use script_bindings::cell::{DomRefCell, Ref, RefMut};
 use script_bindings::codegen::GenericBindings::AnimationBinding::AnimationMethods;
 use script_bindings::codegen::GenericBindings::KeyframeEffectBinding::KeyframeEffectMethods;
+use script_bindings::dom::UnrootedDom;
 use script_bindings::reflector::DomObject;
 use selectors::attr::CaseSensitivity;
 use selectors::matching::ElementSelectorFlags;
@@ -607,6 +608,17 @@ impl Element {
             .shadow_root
             .as_ref()
             .map(|sr| DomRoot::from_ref(&**sr))
+    }
+
+    pub(crate) fn shadow_root_unrooted<'a>(
+        &self,
+        no_gc: &'a NoGC,
+    ) -> Option<UnrootedDom<'a, ShadowRoot>> {
+        self.rare_data()
+            .as_ref()?
+            .shadow_root
+            .as_ref()
+            .map(|sr| UnrootedDom::from_dom(sr.clone(), no_gc))
     }
 
     pub(crate) fn is_shadow_host(&self) -> bool {
