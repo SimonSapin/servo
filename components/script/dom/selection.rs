@@ -20,7 +20,7 @@ use crate::dom::bindings::error::{Error, ErrorResult, Fallible};
 use crate::dom::bindings::inheritance::Castable;
 use crate::dom::bindings::refcounted::Trusted;
 use crate::dom::bindings::reflector::DomGlobal;
-use crate::dom::bindings::root::{Dom, DomRoot, MutNullableDom};
+use crate::dom::bindings::root::{Dom, DomRoot, LayoutDom, MutNullableDom};
 use crate::dom::bindings::str::DOMString;
 use crate::dom::document::Document;
 use crate::dom::eventtarget::EventTarget;
@@ -807,5 +807,12 @@ impl SelectionMethods<crate::DomTypeHolder> for Selection {
         } else {
             DOMString::from("")
         }
+    }
+}
+
+impl<'dom> LayoutDom<'dom, Selection> {
+    #[expect(unsafe_code)]
+    pub(crate) fn range_for_layout(&self) -> Option<LayoutDom<'dom, Range>> {
+        unsafe { self.unsafe_get().range.get_inner_as_layout() }
     }
 }

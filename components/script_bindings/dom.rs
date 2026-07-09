@@ -75,6 +75,15 @@ impl<T: DomObject> MutDom<T> {
             no_gc,
         }
     }
+
+    /// Retrieve a copy of the inner `Dom<T>` as `LayoutDom<T>`.
+    /// For use by layout, which can't use safe types like Temporary.
+    /// # Safety
+    /// Needs to meet the safety requirements of [`lLayoutFromRaw`].
+    pub unsafe fn get_inner_as_layout<'dom, L: LayoutFromRaw<'dom, T>>(&'dom self) -> L {
+        assert_in_layout();
+        unsafe { (*self.val.get()).to_layout() }
+    }
 }
 
 impl<T: DomObject> MallocSizeOf for MutDom<T> {
