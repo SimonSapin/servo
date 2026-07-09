@@ -9,6 +9,7 @@ use std::ops::Range;
 use icu_properties::BidiClass;
 use icu_segmenter::WordSegmenter;
 use layout_api::{LayoutNode, SharedSelection};
+use servo_base::text::Utf32CodeUnitLength;
 use style::computed_values::_webkit_text_security::T as WebKitTextSecurity;
 use style::computed_values::direction::T as Direction;
 use style::computed_values::white_space_collapse::T as WhiteSpaceCollapse;
@@ -308,16 +309,17 @@ impl InlineFormattingContextBuilder {
         info: &NodeAndStyleInfo<'dom>,
         container_info: &NodeAndStyleInfo<'dom>,
         layout_context: &LayoutContext,
+        document_selection: Range<Utf32CodeUnitLength>,
     ) -> bool {
         if self.has_processed_first_letter || !container_info.pseudo_element_chain().is_empty() {
-            self.push_text(text, info);
+            self.push_text(text, info, document_selection);
             return false;
         }
 
         let Some(first_letter_info) =
             container_info.with_pseudo_element(layout_context, PseudoElement::FirstLetter)
         else {
-            self.push_text(text, info);
+            self.push_text(text, info, document_selection);
             return false;
         };
 
@@ -328,7 +330,11 @@ impl InlineFormattingContextBuilder {
 
         // Push any leading white space first.
         if first_letter_range.start != 0 {
-            self.push_text(Cow::Borrowed(&text[0..first_letter_range.start]), info);
+            self.push_text(
+                Cow::Borrowed(&text[0..first_letter_range.start]),
+                info,
+                document_selection.clone(),
+            );
         }
 
         // Push the first-letter text into an anonymous box with the `::first-letter` style.
@@ -340,17 +346,30 @@ impl InlineFormattingContextBuilder {
         box_slot.set(LayoutBox::InlineLevel(inline_item));
 
         let first_letter_text = Cow::Borrowed(&text[first_letter_range.clone()]);
-        self.push_text(first_letter_text, &first_letter_info);
+        self.push_text(
+            first_letter_text,
+            &first_letter_info,
+            document_selection.clone(),
+        );
         self.end_inline_box();
         self.has_processed_first_letter = true;
 
         // Now push the non-first-letter text.
-        self.push_text(Cow::Borrowed(&text[first_letter_range.end..]), info);
+        self.push_text(
+            Cow::Borrowed(&text[first_letter_range.end..]),
+            info,
+            document_selection,
+        );
 
         true
     }
 
-    pub(crate) fn push_text<'dom>(&mut self, text: Cow<'dom, str>, info: &NodeAndStyleInfo<'dom>) {
+    pub(crate) fn push_text<'dom>(
+        &mut self,
+        text: Cow<'dom, str>,
+        info: &NodeAndStyleInfo<'dom>,
+        document_selection: Range<Utf32CodeUnitLength>,
+    ) {
         let white_space_collapse = info.style.clone_white_space_collapse();
         let collapsed = WhitespaceCollapse::new(
             text.chars(),
@@ -477,6 +496,7 @@ impl InlineFormattingContextBuilder {
             current_inline_styles,
             new_range,
             new_character_range,
+            document_selection,
             box_slot
                 .as_ref()
                 .and_then(|box_slot| box_slot.take_layout_box_as_text_run()),

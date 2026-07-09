@@ -1301,7 +1301,7 @@ impl Fragment {
         let end_x = end_advance.unwrap_or(current_advance);
 
         let parent_style = fragment.base.style();
-        if !shared_selection.range.is_empty() {
+        if !shared_selection.character_range.is_empty() {
             let selection_rect = Rect::new(
                 containing_block_rect.origin +
                     Vector2D::new(fragment_x_offset + start_x, Au::zero()),
