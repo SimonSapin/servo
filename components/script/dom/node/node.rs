@@ -247,6 +247,9 @@ bitflags! {
         /// By definition, if a node has this flag set then all its flat tree ancestors
         /// have it set too. Conversely, if a node has this flag unset then all its flat
         /// tree descendants have it unset too.
+        ///
+        /// If `Selection::visible_selection_dirty` returns true, the flags may not be up to date
+        /// until `Selection::set_flags_for_visible_selection` is called.
         const OVERLAPS_DOCUMENT_SELECTION = 1 << 14;
     }
 }
@@ -2877,7 +2880,7 @@ impl Node {
                 FlatTreeParent::RootNode | FlatTreeParent::NotInFlatTree => {},
                 FlatTreeParent::Parent(parent) => {
                     if parent.get_flag(NodeFlags::OVERLAPS_DOCUMENT_SELECTION) {
-                        selection.set_visible_selection_dirty();
+                        selection.set_visible_selection_dirty(None);
                         return;
                     }
                 },

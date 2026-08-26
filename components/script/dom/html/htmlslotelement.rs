@@ -380,7 +380,7 @@ impl HTMLSlotElement {
                 self.upcast::<Node>().parent_in_flat_tree(cx.no_gc()) &&
             parent.get_flag(NodeFlags::OVERLAPS_DOCUMENT_SELECTION)
         {
-            selection.set_visible_selection_dirty();
+            selection.set_visible_selection_dirty(None);
         }
     }
 

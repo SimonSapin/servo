@@ -224,6 +224,17 @@ impl<T: DomObject> MutNullableDom<T> {
         unsafe { ptr::read(self.ptr.get()).map(|o| DomRoot::from_ref(&*o)) }
     }
 
+    /// Returns whether the value is set
+    pub fn is_some(&self) -> bool {
+        assert_in_script();
+        unsafe { ptr::read(self.ptr.get()).is_some() }
+    }
+
+    /// Returns whether the value is unset
+    pub fn is_none(&self) -> bool {
+        !self.is_some()
+    }
+
     /// Get a reference to the traced inner value of this [`MutNullableDom`].
     ///
     /// # Safety

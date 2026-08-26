@@ -7,6 +7,7 @@ use std::cmp::Ordering;
 
 use dom_struct::dom_struct;
 use js::context::{JSContext, NoGC};
+use script_bindings::cell::DomRefCell;
 use script_bindings::codegen::GenericBindings::ShadowRootBinding::ShadowRootMethods;
 use script_bindings::reflector::{Reflector, reflect_dom_object_with_cx};
 use servo_base::text::Utf32CodeUnitsOrNodeOffset;
@@ -47,6 +48,10 @@ pub(crate) struct Selection {
     /// Whether or not this [`Selection`] needs to remark DOM nodes with selection flags
     /// after a change to its underlying [`Range`].
     visible_selection_dirty: Cell<bool>,
+
+    /// If `visible_selection_dirty` was set to true only because `self.range` changed,
+    /// the previous start and end container of `self.range` when the flags were last up-to-date.
+    previous_start_end_containers: DomRefCell<Option<(Dom<Node>, Dom<Node>)>>,
 }
 
 impl Selection {
@@ -58,6 +63,7 @@ impl Selection {
             direction: Cell::new(Direction::Directionless),
             has_scheduled_selectionchange_event: Cell::new(false),
             visible_selection_dirty: Cell::new(false),
+            previous_start_end_containers: DomRefCell::new(None),
         }
     }
 
@@ -73,6 +79,23 @@ impl Selection {
         self.visible_selection_dirty.get()
     }
 
+    /// If the change only affects the range without any DOM tree change,
+    /// `previous_containers` are the start and end containers of the range before the change.
+    /// This is an optimization: passing `None` is always correct.
+    pub(crate) fn set_visible_selection_dirty(&self, previous_containers: Option<(&Node, &Node)>) {
+        if self.visible_selection_dirty.get() {
+            return;
+        }
+        let mut self_previous = self.previous_start_end_containers.borrow_mut();
+        if self_previous.is_none() &&
+            let Some((start, end)) = previous_containers
+        {
+            // Record a previous start/end containers at a time where flags were up to date
+            *self_previous = Some((Dom::from_ref(start), Dom::from_ref(end)));
+        }
+        self.visible_selection_dirty.set(true);
+    }
+
     fn set_range(&self, new_range: Option<&Range>) {
         // If we are setting to literally the same Range object and not just the same
         // positions, then there's nothing changing and no task to queue.
@@ -80,8 +103,10 @@ impl Selection {
             return;
         }
 
+        let mut previous = None;
         if let Some(old_range) = self.range.take() {
             old_range.disassociate_selection(self);
+            previous = Some((old_range.start_container(), old_range.end_container()));
         }
 
         if let Some(new_range) = new_range {
@@ -89,7 +114,7 @@ impl Selection {
             new_range.associate_selection(self);
         }
 
-        self.set_visible_selection_dirty();
+        self.set_visible_selection_dirty(previous.as_ref().map(|(start, end)| (&**start, &**end)));
         self.queue_selectionchange_task();
     }
 
@@ -124,6 +149,8 @@ impl Selection {
         if !self.visible_selection_dirty.take() {
             return;
         }
+        let previous_start_end_containers = self.previous_start_end_containers.take();
+        // TODO: compare this with the container nodes of self.range
 
         self.unset_flags_for_visible_selection(no_gc);
         let Some(range) = self.range.get() else {
@@ -265,15 +292,15 @@ impl Selection {
 
     pub(crate) fn collapse_current_range(&self, node: &Node, offset: u32) {
         let range = self.range.get().expect("Must always have a range");
+        self.set_visible_selection_dirty(Some((&range.start_container(), &range.end_container())));
         range.set_start(node, offset);
         range.set_end(node, offset);
-
-        self.set_visible_selection_dirty();
     }
 
     pub(crate) fn extend_current_range(&self, node: &Node, offset: u32) {
         let range = self.range.get().expect("Must always have a range");
         assert!(range.collapsed(), "Must only extend after collapsing");
+        self.set_visible_selection_dirty(Some((&range.start_container(), &range.end_container())));
 
         let anchor_node = range.start_container();
         if (*anchor_node == *node && range.start_offset() < offset) || anchor_node.is_before(node) {
@@ -283,12 +310,6 @@ impl Selection {
             range.set_start(node, offset);
             self.direction.set(Direction::Backwards);
         }
-
-        self.set_visible_selection_dirty();
-    }
-
-    pub(crate) fn set_visible_selection_dirty(&self) {
-        self.visible_selection_dirty.set(true);
     }
 
     /// <https://w3c.github.io/selection-api/#dfn-anchor>

@@ -227,8 +227,9 @@ impl Range {
 
     /// <https://dom.spec.whatwg.org/#concept-range-bp-set>
     pub(crate) fn set_start(&self, node: &Node, offset: u32) {
+        let previous_start_container = self.start_container();
         if self.set_start_without_reporting(node, offset) {
-            self.report_change();
+            self.report_change(Some((&previous_start_container, &self.end_container())));
         }
     }
 
@@ -254,8 +255,9 @@ impl Range {
 
     /// <https://dom.spec.whatwg.org/#concept-range-bp-set>
     pub(crate) fn set_end(&self, node: &Node, offset: u32) {
+        let previous_end_container = self.end_container();
         if self.set_end_without_reporting(node, offset) {
-            self.report_change();
+            self.report_change(Some((&self.start_container(), &previous_end_container)));
         }
     }
 
@@ -324,13 +326,16 @@ impl Range {
             .retain(|s| &**s != selection);
     }
 
-    fn report_change(&self) {
+    /// If the change only affects the range without any DOM tree change,
+    /// `previous_containers` are the start and end containers of the range before the change.
+    /// This is an optimization: passing `None` is always correct.
+    fn report_change(&self, previous_containers: Option<(&Node, &Node)>) {
         self.associated_selections
             .borrow()
             .iter()
             .for_each(|selection| {
                 selection.queue_selectionchange_task();
-                selection.set_visible_selection_dirty();
+                selection.set_visible_selection_dirty(previous_containers);
             });
     }
 
@@ -426,6 +431,8 @@ impl Range {
         // NOTE: We don't need this part.
         let mut set_start = false;
         let mut set_end = false;
+        let previous_start_container = self.start_container();
+        let previous_end_container = self.end_container();
         match start_or_end {
             // If these steps were invoked as "set the start"
             StartOrEnd::Start => {
@@ -458,7 +465,7 @@ impl Range {
         }
 
         if set_start || set_end {
-            self.report_change();
+            self.report_change(Some((&previous_start_container, &previous_end_container)));
         }
 
         Ok(())
@@ -1041,7 +1048,9 @@ impl RangeMethods<crate::DomTypeHolder> for Range {
             let Some(text) = start_node.downcast::<CharacterData>()
         {
             if end_offset > start_offset {
-                self.report_change();
+                // Since we’re modifying text, this is not a range-only change
+                let previous_range = None;
+                self.report_change(previous_range);
             }
 
             // Step 3.1. Replace data of originalStartNode with originalStartOffset,
@@ -1380,11 +1389,11 @@ impl WeakRangeVec {
                 entry.remove();
             }
             if range.start().node() == child {
-                range.report_change();
+                range.report_change(None);
                 range.start().set(parent, offset);
             }
             if range.end().node() == child {
-                range.report_change();
+                range.report_change(None);
                 range.end().set(parent, offset);
             }
         });
@@ -1411,11 +1420,11 @@ impl WeakRangeVec {
                 entry.remove();
             }
             if range.start().node() == node {
-                range.report_change();
+                range.report_change(None);
                 range.start().set(sibling, range.start_offset() + length);
             }
             if range.end().node() == node {
-                range.report_change();
+                range.report_change(None);
                 range.end().set(sibling, range.end_offset() + length);
             }
         });
@@ -1469,11 +1478,11 @@ impl WeakRangeVec {
             }
 
             if move_start {
-                range.report_change();
+                range.report_change(None);
                 range.start().set(child, new_offset);
             }
             if move_end {
-                range.report_change();
+                range.report_change(None);
                 range.end().set(child, new_offset);
             }
         });
@@ -1541,11 +1550,11 @@ impl WeakRangeVec {
             }
 
             if move_start {
-                range.report_change();
+                range.report_change(None);
                 range.start().set(sibling, start_offset - offset);
             }
             if move_end {
-                range.report_change();
+                range.report_change(None);
                 range.end().set(sibling, end_offset - offset);
             }
         });
@@ -1557,11 +1566,11 @@ impl WeakRangeVec {
         self.cell.borrow_mut().update(|entry| {
             let range = entry.root().unwrap();
             if range.start().node() == node && offset == range.start_offset() {
-                range.report_change();
+                range.report_change(None);
                 range.start().set_offset(offset + 1);
             }
             if range.end().node() == node && offset == range.end_offset() {
-                range.report_change();
+                range.report_change(None);
                 range.end().set_offset(offset + 1);
             }
         });
@@ -1572,12 +1581,12 @@ impl WeakRangeVec {
             let range = entry.root().unwrap();
             let start_offset = range.start_offset();
             if range.start().node() == node && start_offset > offset {
-                range.report_change();
+                range.report_change(None);
                 range.start().set_offset(f(start_offset));
             }
             let end_offset = range.end_offset();
             if range.end().node() == node && end_offset > offset {
-                range.report_change();
+                range.report_change(None);
                 range.end().set_offset(f(end_offset));
             }
         });

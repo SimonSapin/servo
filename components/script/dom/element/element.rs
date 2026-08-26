@@ -761,7 +761,7 @@ impl Element {
         if let Some(selection) = self.owner_document().selection() &&
             node.get_flag(NodeFlags::OVERLAPS_DOCUMENT_SELECTION)
         {
-            selection.set_visible_selection_dirty();
+            selection.set_visible_selection_dirty(None);
         }
 
         // Step 6. Set shadow's delegates focus to delegatesFocus
