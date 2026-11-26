@@ -958,7 +958,7 @@ impl FlexContainer {
         let depends_on_block_constraints = true;
 
         IndependentFormattingContextLayoutResult {
-            fragments: FragmentChildren::Logical(fragments),
+            fragments: FragmentChildren(fragments),
             content_block_size,
             content_inline_size_for_table: None,
             baselines,

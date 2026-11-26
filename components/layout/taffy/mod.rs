@@ -108,7 +108,7 @@ impl fmt::Debug for TaffyItemBox {
         f.debug_struct("TaffyItemBox")
             .field("taffy_layout", &self.taffy_layout)
             .field("taffy_baselines", &self.taffy_baselines)
-            .field("child_fragments", &self.child_fragments.len())
+            .field("child_fragments", &self.child_fragments.0.len())
             .field("style", &self.style)
             .field("taffy_level_box", &self.taffy_level_box)
             .finish()

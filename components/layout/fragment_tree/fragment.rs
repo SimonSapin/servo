@@ -721,67 +721,25 @@ impl<'a> From<&'a LayoutThread> for CumulativeContentRectCalculation<'a> {
 
 /// A temporary data structure to contain fragments that are meant to be
 /// children of another fragment.
-#[derive(Clone, MallocSizeOf)]
-pub(crate) enum FragmentChildren {
-    Logical(Vec<FragmentAndLogicalRect>),
-}
-
-impl Default for FragmentChildren {
-    fn default() -> Self {
-        Self::Logical(Default::default())
-    }
-}
+#[derive(Clone, MallocSizeOf, Default)]
+pub(crate) struct FragmentChildren(pub(crate) Vec<FragmentAndLogicalRect>);
 
 impl FragmentChildren {
-    pub(crate) fn fragments(&self) -> impl Iterator<Item = &Fragment> {
-        match self {
-            FragmentChildren::Logical(fragment_and_logical_rects) => fragment_and_logical_rects
-                .iter()
-                .map(|fragment_and_logical_rect| &fragment_and_logical_rect.fragment),
-        }
-    }
-
-    pub(crate) fn is_empty(&self) -> bool {
-        match self {
-            FragmentChildren::Logical(fragment_and_logical_rects) => {
-                fragment_and_logical_rects.is_empty()
-            },
-        }
-    }
-
-    pub(crate) fn len(&self) -> usize {
-        match self {
-            FragmentChildren::Logical(fragment_and_logical_rects) => {
-                fragment_and_logical_rects.len()
-            },
-        }
-    }
-
     pub(crate) fn into_physical_fragments(
         self,
         writing_mode: WritingMode,
         container_size: LogicalVec2<Au>,
     ) -> Vec<Fragment> {
-        match self {
-            FragmentChildren::Logical(fragment_and_logical_rects) => fragment_and_logical_rects
-                .into_iter()
-                .map(|fragment_and_logical_rect| {
-                    fragment_and_logical_rect.fragment.set_rect(
-                        fragment_and_logical_rect
-                            .logical_rect
-                            .as_physical(writing_mode, container_size),
-                    );
-                    fragment_and_logical_rect.fragment
-                })
-                .collect(),
-        }
-    }
-
-    pub(crate) fn append(&mut self, mut other: Self) {
-        match (self, &mut other) {
-            (Self::Logical(fragments), Self::Logical(other_fragments)) => {
-                fragments.append(other_fragments)
-            },
-        }
+        self.0
+            .into_iter()
+            .map(|fragment_and_logical_rect| {
+                fragment_and_logical_rect.fragment.set_rect(
+                    fragment_and_logical_rect
+                        .logical_rect
+                        .as_physical(writing_mode, container_size),
+                );
+                fragment_and_logical_rect.fragment
+            })
+            .collect()
     }
 }

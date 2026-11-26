@@ -467,7 +467,7 @@ impl LineItemLayout<'_, '_> {
         let mut fragment = BoxFragment::new_with_writing_mode_override(
             inline_box.base.base_fragment_info,
             inline_box.base.style.clone(),
-            FragmentChildren::Logical(inner_state.fragments_and_logical_rect),
+            FragmentChildren(inner_state.fragments_and_logical_rect),
             // Previously all the fragment's children were positioned relative to the linebox,
             // but they need to be made relative to this fragment.
             content_rect.as_physical_deprecated(containing_block),

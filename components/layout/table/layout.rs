@@ -83,15 +83,17 @@ impl CellLayout {
     /// Whether the cell has no in-flow or out-of-flow contents, other than collapsed whitespace.
     /// Note this logic differs from 'empty-cells', which counts abspos contents as empty.
     fn is_empty(&self) -> bool {
-        self.layout.fragments.is_empty()
+        self.layout.fragments.0.is_empty()
     }
 
     /// Whether the cell is considered empty for the purpose of the 'empty-cells' property.
     fn is_empty_for_empty_cells(&self) -> bool {
-        self.layout
-            .fragments
-            .fragments()
-            .all(|fragment| matches!(fragment, Fragment::AbsoluteOrFixedPositionedPlaceholder(_)))
+        self.layout.fragments.0.iter().all(|fragment| {
+            matches!(
+                fragment.fragment,
+                Fragment::AbsoluteOrFixedPositionedPlaceholder(_)
+            )
+        })
     }
 }
 
@@ -1752,7 +1754,7 @@ impl<'a> TableLayout<'a> {
         }
 
         table_layout.content_block_size = current_block_offset + offset_from_wrapper.block_end;
-        table_layout.fragments = FragmentChildren::Logical(table_layout_fragments);
+        table_layout.fragments = FragmentChildren(table_layout_fragments);
         table_layout
     }
 
@@ -1907,7 +1909,7 @@ impl<'a> TableLayout<'a> {
         BoxFragment::new(
             self.table.grid_base_fragment_info,
             self.table.grid_style.clone(),
-            FragmentChildren::Logical(table_fragments),
+            FragmentChildren(table_fragments),
             content_rect,
             PhysicalBoxSides::from_pbm(&self.pbm, LogicalSides::zero(), table_writing_mode),
             self.specific_layout_info_for_grid(),
@@ -2355,7 +2357,7 @@ impl<'a> RowFragmentLayout<'a> {
         let mut row_fragment = BoxFragment::new_with_writing_mode_override(
             self.row.base.base_fragment_info,
             self.row.base.style.clone(),
-            FragmentChildren::Logical(self.fragments),
+            FragmentChildren(self.fragments),
             self.rect
                 .as_physical_deprecated(&row_group_containing_block),
             PhysicalBoxSides::zero(),
@@ -2426,7 +2428,7 @@ impl RowGroupFragmentLayout {
         let mut row_group_fragment = BoxFragment::new_with_writing_mode_override(
             row_group.base.base_fragment_info,
             row_group.base.style.clone(),
-            FragmentChildren::Logical(self.fragments),
+            FragmentChildren(self.fragments),
             self.rect
                 .as_physical_deprecated(containing_block_for_logical_conversion),
             PhysicalBoxSides::zero(),
@@ -2953,7 +2955,7 @@ impl TableSlotCell {
         BoxFragment::new(
             base_fragment_info,
             cell_style.clone(),
-            FragmentChildren::Logical(vec![FragmentAndLogicalRect::new(
+            FragmentChildren(vec![FragmentAndLogicalRect::new(
                 Fragment::Positioning(align_fragment),
                 align_fragment_rect,
             )]),

@@ -725,7 +725,7 @@ impl TaffyContainer {
         debug_assert!(out_of_flow_candidates.next().is_none());
 
         IndependentFormattingContextLayoutResult {
-            fragments: FragmentChildren::Logical(fragments_and_rects),
+            fragments: FragmentChildren(fragments_and_rects),
             content_block_size: container_content_size.block,
             content_inline_size_for_table: None,
             baselines: Baselines {

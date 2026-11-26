@@ -486,7 +486,7 @@ impl IndependentFormattingContext {
                     style: &self.base.style,
                 };
                 if let Some(widget) = widget {
-                    let widget_layout = widget.borrow().layout(
+                    let mut widget_layout = widget.borrow().layout(
                         layout_context,
                         positioning_context,
                         &widget_containing_block,
@@ -495,7 +495,10 @@ impl IndependentFormattingContext {
                         &LazySize::intrinsic(),
                     );
 
-                    replaced_layout.fragments.append(widget_layout.fragments);
+                    replaced_layout
+                        .fragments
+                        .0
+                        .append(&mut widget_layout.fragments.0);
                 }
                 replaced_layout
             },

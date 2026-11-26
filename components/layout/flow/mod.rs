@@ -426,13 +426,13 @@ impl OutsideMarker {
             &LazySize::intrinsic(),
         );
 
-        let max_inline_size = match &layout.fragments {
-            FragmentChildren::Logical(fragments) => fragments
-                .iter()
-                .map(|fragment| fragment.logical_rect.max_inline_position())
-                .max(),
-        }
-        .unwrap_or_default();
+        let max_inline_size = layout
+            .fragments
+            .0
+            .iter()
+            .map(|fragment| fragment.logical_rect.max_inline_position())
+            .max()
+            .unwrap_or_default();
 
         // Position the marker beyond the inline start of the border box list item. This needs to
         // take into account the border and padding of the item.
@@ -629,7 +629,7 @@ impl BlockFormattingContext {
                 std::mem::take(&mut flow_layout.fragments),
                 false, /* is_line_box */
             );
-            flow_layout.fragments = FragmentChildren::Logical(vec![WithLogicalRect::new(
+            flow_layout.fragments = FragmentChildren(vec![WithLogicalRect::new(
                 Fragment::Positioning(align_fragment),
                 align_fragment_rect,
             )]);
@@ -1024,8 +1024,8 @@ fn layout_block_level_children(
         ),
     };
 
-    let depends_on_block_constraints = fragments.fragments().any(|fragment| {
-        fragment.base().is_some_and(|base| {
+    let depends_on_block_constraints = fragments.0.iter().any(|fragment| {
+        fragment.fragment.base().is_some_and(|base| {
             base.flags.contains(
                 FragmentFlags::SIZE_DEPENDS_ON_BLOCK_CONSTRAINTS_AND_CAN_BE_CHILD_OF_FLEX_ITEM,
             )
@@ -1095,7 +1095,7 @@ fn layout_block_level_children_maybe_in_parallel(
             fragment
         })
         .collect();
-    FragmentChildren::Logical(fragments)
+    FragmentChildren(fragments)
 }
 
 fn layout_block_level_children_sequentially(
@@ -1123,7 +1123,7 @@ fn layout_block_level_children_sequentially(
             )
         })
         .collect();
-    FragmentChildren::Logical(fragments)
+    FragmentChildren(fragments)
 }
 
 fn layout_block_level_child(

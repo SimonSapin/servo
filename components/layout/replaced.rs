@@ -796,11 +796,7 @@ impl ReplacedContents {
             // The result doesn't depend on `containing_block_for_children.size.block`,
             // but it depends on `lazy_block_size`, which is probably tied to that.
             depends_on_block_constraints: true,
-            fragments: FragmentChildren::Logical(self.make_fragments(
-                layout_context,
-                &base.style,
-                size,
-            )),
+            fragments: FragmentChildren(self.make_fragments(layout_context, &base.style, size)),
             specific_layout_info: None,
         }
     }

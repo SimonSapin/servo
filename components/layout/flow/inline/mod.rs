@@ -1409,7 +1409,7 @@ impl InlineFormattingContextLayout<'_> {
         let fragment = Fragment::Positioning(PositioningFragment::new_anonymous(
             self.root_nesting_level.style.clone(),
             physical_line_rect,
-            FragmentChildren::Logical(fragments),
+            FragmentChildren(fragments),
             true, /* is_line_box */
         ));
         self.fragments
@@ -2398,7 +2398,7 @@ impl InlineFormattingContext {
             layout.placement_state.finish();
 
         IndependentFormattingContextLayoutResult {
-            fragments: FragmentChildren::Logical(layout.fragments),
+            fragments: FragmentChildren(layout.fragments),
             content_block_size,
             collapsible_margins_in_children,
             baselines,
