@@ -570,7 +570,6 @@ impl HoistedAbsolutelyPositionedBox {
                 layout_context,
                 &fully_adjusted_static_position_rect,
                 &containing_block,
-                containing_block_origin,
                 self.resolved_alignment,
                 self.original_parent_writing_mode,
             );
@@ -648,7 +647,6 @@ impl IndependentFormattingContext {
         layout_context: &LayoutContext,
         static_position_rect: &LogicalRect<Au>,
         containing_block: &DefiniteContainingBlock,
-        containing_block_origin: PhysicalVec<Au>,
         resolved_alignment: LogicalVec2<AlignFlags>,
         original_parent_writing_mode: WritingMode,
     ) -> (Arc<BoxFragment>, LogicalRect<Au>, PositioningContext) {
@@ -832,16 +830,14 @@ impl IndependentFormattingContext {
             size: content_size,
         };
 
-        let physical_adjusted_content_rect = content_rect
-            .as_physical_deprecated(containing_block)
-            .translate(containing_block_origin);
+        let physical_content_size = content_size.to_physical_size(containing_block_writing_mode);
 
         if is_cached &&
             let Some(old_fragment) = self.base.fragments().first() &&
             let Some(old_box_fragment) = old_fragment
                 .retrieve_box_fragment()
                 .map(|fragment| fragment.clone()) &&
-            physical_adjusted_content_rect == old_box_fragment.content_rect()
+            physical_content_size == old_box_fragment.content_rect().size
         {
             // Drain the nested absolutes for which we are a containing block.
             // However, we are reusing the fragment, so no need to lay them out again.
@@ -853,7 +849,7 @@ impl IndependentFormattingContext {
             self.base_fragment_info(),
             style,
             fragments,
-            physical_adjusted_content_rect,
+            physical_content_size,
             PhysicalBoxSides::from_pbm(&pbm, margin, containing_block_writing_mode),
             specific_layout_info,
         );
@@ -1220,7 +1216,6 @@ impl LayoutRootLayoutInputs {
             layout_context,
             &self.fully_adjusted_static_position_rect,
             &containing_block,
-            self.containing_block_origin,
             self.resolved_alignment,
             self.original_parent_writing_mode,
         );

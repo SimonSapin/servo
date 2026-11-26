@@ -409,6 +409,10 @@ impl SameFormattingContextBlock {
             sequential_layout_state.adjoin_assign(&CollapsedMargin::new(margin.block_end));
         }
 
+        let content_size = LogicalVec2 {
+            block: block_size,
+            inline: containing_block_for_children.inline_size(),
+        };
         let content_rect = LogicalRect {
             start_corner: LogicalVec2 {
                 block: (pbm.padding.block_start +
@@ -418,10 +422,7 @@ impl SameFormattingContextBlock {
                     pbm.border.inline_start +
                     effective_margin_inline_start,
             },
-            size: LogicalVec2 {
-                block: block_size,
-                inline: containing_block_for_children.inline_size(),
-            },
+            size: content_size,
         };
 
         let mut base_fragment_info = self.base.base_fragment_info;
@@ -441,7 +442,7 @@ impl SameFormattingContextBlock {
             base_fragment_info,
             style.clone(),
             flow_layout.fragments,
-            content_rect.as_physical_deprecated(containing_block),
+            content_size.to_physical_size(containing_block_writing_mode),
             PhysicalBoxSides::from_pbm(&pbm, margin, containing_block_writing_mode),
             flow_layout.specific_layout_info,
         )

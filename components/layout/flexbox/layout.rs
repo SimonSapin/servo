@@ -270,13 +270,14 @@ impl FlexLineItem<'_> {
         let container_writing_mode = containing_block.style.writing_mode;
         let style = self.item.box_.style();
 
-        let physical_content_rect =
-            content_rect.as_physical_deprecated(flex_context.containing_block);
+        let physical_content_size = content_rect
+            .size
+            .to_physical_size(flex_context.containing_block.style.writing_mode);
         let mut fragment = BoxFragment::new(
             fragment_info,
             style.clone(),
             self.layout_result.fragments,
-            physical_content_rect,
+            physical_content_size,
             PhysicalBoxSides::from_logical(
                 flex_context.sides_to_flow_relative(self.item.padding),
                 flex_context.sides_to_flow_relative(self.item.border),

@@ -517,7 +517,7 @@ impl ReplacedContents {
         let (object_fit_size, mut rect) = self.calculate_fragment_rect(style, size);
         let clip = PhysicalRect::new(PhysicalPoint::origin(), size);
 
-        let base = BaseFragment::new(self.base_fragment_info, PhysicalRect::default());
+        let base = BaseFragment::new(self.base_fragment_info, PhysicalSize::default());
         let logical_rect = |rect| {
             LogicalRect::from_physical(
                 rect,

@@ -17,7 +17,7 @@ use super::{BaseFragment, BaseFragmentInfo, Fragment};
 use crate::SharedStyle;
 use crate::fragment_tree::debug::PrintableRect;
 use crate::fragment_tree::{CumulativeContentRectCalculation, FragmentChildren};
-use crate::geom::{LogicalVec2, PhysicalRect, SyncPhysicalRectAu};
+use crate::geom::{LogicalVec2, PhysicalRect, PhysicalSize, SyncPhysicalRectAu};
 
 /// Can contain child fragments with relative coordinates, but does not contribute to painting
 /// itself. [`PositioningFragment`]s may be completely anonymous, or just non-painting Fragments
@@ -53,14 +53,14 @@ pub(crate) struct PositioningFragment {
 impl PositioningFragment {
     pub fn new_anonymous(
         style: ServoArc<ComputedValues>,
-        rect: PhysicalRect<Au>,
+        content_size: PhysicalSize<Au>,
         children: FragmentChildren,
         is_line_box: bool,
     ) -> Arc<Self> {
         let writing_mode = style.writing_mode;
         Self::new_anonymous_with_writing_mode_override(
             style,
-            rect,
+            content_size,
             children,
             is_line_box,
             writing_mode,
@@ -69,19 +69,19 @@ impl PositioningFragment {
 
     pub fn new_anonymous_with_writing_mode_override(
         style: ServoArc<ComputedValues>,
-        rect: PhysicalRect<Au>,
+        content_size: PhysicalSize<Au>,
         children: FragmentChildren,
         is_line_box: bool,
         writing_mode: WritingMode,
     ) -> Arc<Self> {
         let children = children.into_physical_fragments(
             writing_mode,
-            LogicalVec2::from_physical_size(&rect.size, writing_mode),
+            LogicalVec2::from_physical_size(&content_size, writing_mode),
         );
         Self::new_with_base_fragment_info(
             BaseFragmentInfo::anonymous(),
             style,
-            rect,
+            content_size,
             children,
             is_line_box,
         )
@@ -89,21 +89,27 @@ impl PositioningFragment {
 
     pub fn new_empty(
         base_fragment_info: BaseFragmentInfo,
-        rect: PhysicalRect<Au>,
+        content_size: PhysicalSize<Au>,
         style: ServoArc<ComputedValues>,
     ) -> Arc<Self> {
-        Self::new_with_base_fragment_info(base_fragment_info, style, rect, Vec::new(), false)
+        Self::new_with_base_fragment_info(
+            base_fragment_info,
+            style,
+            content_size,
+            Vec::new(),
+            false,
+        )
     }
 
     fn new_with_base_fragment_info(
         base_fragment_info: BaseFragmentInfo,
         style: ServoArc<ComputedValues>,
-        rect: PhysicalRect<Au>,
+        content_size: PhysicalSize<Au>,
         children: Vec<Fragment>,
         is_line_box: bool,
     ) -> Arc<Self> {
         Arc::new(Self {
-            base: BaseFragment::new(base_fragment_info, rect),
+            base: BaseFragment::new(base_fragment_info, content_size),
             style: style.into(),
             children,
             scrollable_overflow: Default::default(),

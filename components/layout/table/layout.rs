@@ -1781,19 +1781,16 @@ impl<'a> TableLayout<'a> {
         assert_eq!(self.table.size.width, self.distributed_column_widths.len());
 
         if self.table.size.width == 0 && self.table.size.height == 0 {
-            let content_rect = LogicalRect {
-                start_corner: LogicalVec2::zero(),
-                size: LogicalVec2 {
-                    inline: self.table_width,
-                    block: self.final_table_height,
-                },
+            let content_size = LogicalVec2 {
+                inline: self.table_width,
+                block: self.final_table_height,
             }
-            .as_physical_deprecated(containing_block_for_logical_conversion);
+            .to_physical_size(containing_block_for_logical_conversion.style.writing_mode);
             return BoxFragment::new(
                 self.table.grid_base_fragment_info,
                 self.table.grid_style.clone(),
                 Default::default(),
-                content_rect,
+                content_size,
                 PhysicalBoxSides::from_pbm(&self.pbm, LogicalSides::zero(), table_writing_mode),
                 self.specific_layout_info_for_grid(),
             );
@@ -1898,19 +1895,16 @@ impl<'a> TableLayout<'a> {
             ));
         }
 
-        let content_rect = LogicalRect {
-            start_corner: LogicalVec2::zero(),
-            size: LogicalVec2 {
-                inline: table_and_track_dimensions.table_rect.max_inline_position(),
-                block: table_and_track_dimensions.table_rect.max_block_position(),
-            },
+        let content_size = LogicalVec2 {
+            inline: table_and_track_dimensions.table_rect.max_inline_position(),
+            block: table_and_track_dimensions.table_rect.max_block_position(),
         }
-        .as_physical_deprecated(containing_block_for_logical_conversion);
+        .to_physical_size(containing_block_for_logical_conversion.style.writing_mode);
         BoxFragment::new(
             self.table.grid_base_fragment_info,
             self.table.grid_style.clone(),
             FragmentChildren(table_fragments),
-            content_rect,
+            content_size,
             PhysicalBoxSides::from_pbm(&self.pbm, LogicalSides::zero(), table_writing_mode),
             self.specific_layout_info_for_grid(),
         )
@@ -2140,7 +2134,9 @@ impl<'a> TableLayout<'a> {
                 let rect = dimensions.get_column_group_rect(&column_group);
                 let fragment = Fragment::Positioning(PositioningFragment::new_empty(
                     column_group.base.base_fragment_info,
-                    rect.as_physical_deprecated(containing_block_for_logical_conversion),
+                    rect.size.to_physical_size(
+                        containing_block_for_logical_conversion.style.writing_mode,
+                    ),
                     column_group.base.style.clone(),
                 ));
                 column_group.base.set_fragment(fragment.clone());
@@ -2153,7 +2149,8 @@ impl<'a> TableLayout<'a> {
             let rect = dimensions.get_column_rect(column_index);
             let fragment = Fragment::Positioning(PositioningFragment::new_empty(
                 column.base.base_fragment_info,
-                rect.as_physical_deprecated(containing_block_for_logical_conversion),
+                rect.size
+                    .to_physical_size(containing_block_for_logical_conversion.style.writing_mode),
                 column.base.style.clone(),
             ));
             column.base.set_fragment(fragment.clone());
@@ -2339,27 +2336,13 @@ impl<'a> RowFragmentLayout<'a> {
                 relative_adjustement(&self.row.base.style, containing_block_for_children);
         }
 
-        let size = if let Some(row_group_layout) = row_group_fragment_layout {
-            self.rect.start_corner -= row_group_layout.rect.start_corner;
-            ContainingBlockSize::new(
-                row_group_layout.rect.size.inline,
-                SizeConstraint::Definite(row_group_layout.rect.size.block),
-            )
-        } else {
-            containing_block_for_logical_conversion.size.clone()
-        };
-
-        let row_group_containing_block = ContainingBlock {
-            size,
-            style: containing_block_for_logical_conversion.style,
-        };
-
         let mut row_fragment = BoxFragment::new_with_writing_mode_override(
             self.row.base.base_fragment_info,
             self.row.base.style.clone(),
             FragmentChildren(self.fragments),
             self.rect
-                .as_physical_deprecated(&row_group_containing_block),
+                .size
+                .to_physical_size(containing_block_for_logical_conversion.style.writing_mode),
             PhysicalBoxSides::zero(),
             None, /* specific_layout_info */
             containing_block_for_logical_conversion.style.writing_mode,
@@ -2430,7 +2413,8 @@ impl RowGroupFragmentLayout {
             row_group.base.style.clone(),
             FragmentChildren(self.fragments),
             self.rect
-                .as_physical_deprecated(containing_block_for_logical_conversion),
+                .size
+                .to_physical_size(containing_block_for_logical_conversion.style.writing_mode),
             PhysicalBoxSides::zero(),
             None, /* specific_layout_info */
             containing_block_for_logical_conversion.style.writing_mode,
@@ -2921,13 +2905,9 @@ impl TableSlotCell {
         };
         let align_fragment = PositioningFragment::new_anonymous(
             cell_style.clone(),
-            align_fragment_rect.as_physical_deprecated(&ContainingBlock {
-                size: ContainingBlockSize::new(
-                    cell_content_rect.size.inline,
-                    SizeConstraint::Definite(cell_content_rect.size.block),
-                ),
-                style: cell_style,
-            }),
+            cell_content_rect
+                .size
+                .to_physical_size(cell_style.writing_mode),
             layout.layout.fragments,
             false, /* is_line_box */
         );
@@ -2959,7 +2939,9 @@ impl TableSlotCell {
                 Fragment::Positioning(align_fragment),
                 align_fragment_rect,
             )]),
-            cell_content_rect.as_physical_deprecated(containing_block),
+            cell_content_rect
+                .size
+                .to_physical_size(containing_block.style.writing_mode),
             PhysicalBoxSides::from_logical(
                 layout.padding,
                 layout.border,

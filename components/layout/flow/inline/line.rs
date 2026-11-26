@@ -28,7 +28,7 @@ use crate::fragment_tree::{
     BaseFragment, BaseFragmentInfo, BoxFragment, Fragment, FragmentAndLogicalRect,
     FragmentChildren, FragmentFlags, PhysicalBoxSides, TextFragment, WithLogicalRect,
 };
-use crate::geom::{LogicalRect, LogicalSides, LogicalVec2, PhysicalRect};
+use crate::geom::{LogicalRect, LogicalSides, LogicalVec2, PhysicalSize};
 use crate::positioned::{
     AbsolutelyPositionedBox, PositioningContext, PositioningContextLength, StaticPositionRect,
     relative_adjustement,
@@ -448,20 +448,21 @@ impl LineItemLayout<'_, '_> {
         }
         let pbm_sums = padding + border + margin;
 
+        let content_size = LogicalVec2 {
+            inline: inner_state.inline_advance,
+            block: if self.is_phantom_line {
+                Au::zero()
+            } else {
+                inline_box_state.base.font_metrics.line_gap
+            },
+        };
         // Make `content_rect` relative to the parent Fragment.
         let content_rect = LogicalRect {
             start_corner: LogicalVec2 {
                 inline: self.current_state.inline_advance + pbm_sums.inline_start,
                 block: inner_state.parent_offset.block - self.current_state.parent_offset.block,
             } + inner_state.relative_offset,
-            size: LogicalVec2 {
-                inline: inner_state.inline_advance,
-                block: if self.is_phantom_line {
-                    Au::zero()
-                } else {
-                    inline_box_state.base.font_metrics.line_gap
-                },
-            },
+            size: content_size,
         };
 
         let mut fragment = BoxFragment::new_with_writing_mode_override(
@@ -470,7 +471,7 @@ impl LineItemLayout<'_, '_> {
             FragmentChildren(inner_state.fragments_and_logical_rect),
             // Previously all the fragment's children were positioned relative to the linebox,
             // but they need to be made relative to this fragment.
-            content_rect.as_physical_deprecated(containing_block),
+            content_size.to_physical_size(containing_block_writing_mode),
             PhysicalBoxSides::from_logical(padding, border, margin, containing_block_writing_mode),
             None, /* specific_layout_info */
             containing_block_writing_mode,
@@ -593,7 +594,7 @@ impl LineItemLayout<'_, '_> {
             .fragments_and_logical_rect
             .push(FragmentAndLogicalRect::new(
                 Fragment::Text(Arc::new(TextFragment {
-                    base: BaseFragment::new(text_item.base_fragment_info, PhysicalRect::zero()),
+                    base: BaseFragment::new(text_item.base_fragment_info, PhysicalSize::zero()),
                     run_data: text_item.text_fragment_run_data,
                     font_metrics: font_metrics.clone(),
                     font_key,

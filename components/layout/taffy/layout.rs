@@ -604,7 +604,7 @@ impl TaffyContainer {
                             fragment_info,
                             independent_box.style().clone(),
                             std::mem::take(&mut child.child_fragments),
-                            content_rect,
+                            content_rect.size,
                             PhysicalBoxSides {
                                 padding,
                                 border,

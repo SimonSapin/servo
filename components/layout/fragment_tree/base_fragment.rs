@@ -80,11 +80,15 @@ impl std::fmt::Debug for BaseFragment {
 }
 
 impl BaseFragment {
-    pub(crate) fn new(base_fragment_info: BaseFragmentInfo, rect: PhysicalRect<Au>) -> Self {
+    pub(crate) fn new(base_fragment_info: BaseFragmentInfo, size: PhysicalSize<Au>) -> Self {
+        // The entire rect will be overwritten later by `FragmentChildren::into_physical_fragments`
+        // when this frgament is set as a child of its parent fragment, but the size may be used
+        // in-between such as if a child of this fragment has a different writing mode.
+        let origin = PhysicalPoint::zero();
         Self {
             tag: base_fragment_info.tag,
             flags: base_fragment_info.flags,
-            rect: SyncPhysicalRectAu::new(rect),
+            rect: SyncPhysicalRectAu::new(PhysicalRect::new(origin, size)),
             status: AtomicU8::new(FragmentStatus::New as u8),
         }
     }

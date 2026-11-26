@@ -1387,17 +1387,17 @@ impl InlineFormattingContextLayout<'_> {
         // we do not need to include it in the `start_corner` of the line's main Fragment.
         let containing_block = self.containing_block();
         let containing_block_writing_mode = containing_block.style.writing_mode;
+        let line_size = LogicalVec2 {
+            inline: containing_block.inline_size(),
+            block: effective_block_advance.resolve(),
+        };
         let logical_line_rect = LogicalRect {
             start_corner: LogicalVec2 {
                 inline: Au::zero(),
                 block: block_start_position,
             },
-            size: LogicalVec2 {
-                inline: containing_block.inline_size(),
-                block: effective_block_advance.resolve(),
-            },
+            size: line_size,
         };
-        let physical_line_rect = logical_line_rect.as_physical_deprecated(containing_block);
 
         self.positioning_context
             .adjust_static_position_of_hoisted_fragments(
@@ -1408,7 +1408,7 @@ impl InlineFormattingContextLayout<'_> {
 
         let fragment = Fragment::Positioning(PositioningFragment::new_anonymous(
             self.root_nesting_level.style.clone(),
-            physical_line_rect,
+            line_size.to_physical_size(containing_block_writing_mode),
             FragmentChildren(fragments),
             true, /* is_line_box */
         ));

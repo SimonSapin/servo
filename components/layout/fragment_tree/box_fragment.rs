@@ -28,7 +28,7 @@ use crate::formatting_contexts::Baselines;
 use crate::fragment_tree::debug::{PrintableRect, PrintableSides};
 use crate::fragment_tree::{CumulativeContentRectCalculation, FragmentChildren};
 use crate::geom::{
-    AuOrAuto, LogicalSides, LogicalVec2, PhysicalPoint, PhysicalRect, PhysicalSides,
+    AuOrAuto, LogicalSides, LogicalVec2, PhysicalPoint, PhysicalRect, PhysicalSides, PhysicalSize,
     SyncPhysicalRectAu,
 };
 use crate::style_ext::{ComputedValuesExt, PaddingBorderMargin};
@@ -221,7 +221,7 @@ impl BoxFragment {
         base_fragment_info: BaseFragmentInfo,
         style: ServoArc<ComputedValues>,
         children: FragmentChildren,
-        content_rect: PhysicalRect<Au>,
+        content_size: PhysicalSize<Au>,
         sides: PhysicalBoxSides,
         specific_layout_info: Option<SpecificLayoutInfo>,
     ) -> Self {
@@ -230,7 +230,7 @@ impl BoxFragment {
             base_fragment_info,
             style,
             children,
-            content_rect,
+            content_size,
             sides,
             specific_layout_info,
             writing_mode,
@@ -241,7 +241,7 @@ impl BoxFragment {
         base_fragment_info: BaseFragmentInfo,
         style: ServoArc<ComputedValues>,
         children: FragmentChildren,
-        content_rect: PhysicalRect<Au>,
+        content_size: PhysicalSize<Au>,
         sides: PhysicalBoxSides,
         specific_layout_info: Option<SpecificLayoutInfo>,
         writing_mode: WritingMode,
@@ -249,11 +249,11 @@ impl BoxFragment {
         let rare_data = BoxFragmentRareData::new(specific_layout_info);
         let children = children.into_physical_fragments(
             writing_mode,
-            LogicalVec2::from_physical_size(&content_rect.size, writing_mode),
+            LogicalVec2::from_physical_size(&content_size, writing_mode),
         );
 
         Self {
-            base: BaseFragment::new(base_fragment_info, content_rect),
+            base: BaseFragment::new(base_fragment_info, content_size),
             style: style.into(),
             children,
             cumulative_parent_content_rect: Default::default(),

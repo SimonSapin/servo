@@ -42,9 +42,7 @@ use crate::fragment_tree::{
     Fragment, FragmentAndLogicalRect, FragmentChildren, FragmentFlags, PhysicalBoxSides,
     PositioningFragment, WithLogicalRect,
 };
-use crate::geom::{
-    AuOrAuto, LogicalRect, LogicalSides, LogicalSides1D, LogicalVec2, PhysicalPoint, PhysicalRect,
-};
+use crate::geom::{AuOrAuto, LogicalRect, LogicalSides, LogicalSides1D, LogicalVec2};
 use crate::layout_box_base::{IndependentFormattingContextLayoutResult, LayoutBoxBase};
 use crate::positioned::{
     AbsolutelyPositionedBox, PositioningContext, PositioningContextLength, StaticPositionRect,
@@ -445,6 +443,10 @@ impl OutsideMarker {
         // they are the same, but this could change in the future.
         let pbm_of_list_item =
             LayoutStyle::Default(&self.list_item_style).padding_border_margin(containing_block);
+        let content_size = LogicalVec2 {
+            inline: max_inline_size,
+            block: layout.content_block_size,
+        };
         let content_rect = LogicalRect {
             start_corner: LogicalVec2 {
                 inline: -max_inline_size -
@@ -452,10 +454,7 @@ impl OutsideMarker {
                         pbm_of_list_item.padding.inline_start),
                 block: Zero::zero(),
             },
-            size: LogicalVec2 {
-                inline: max_inline_size,
-                block: layout.content_block_size,
-            },
+            size: content_size,
         };
 
         let mut base_fragment_info = BaseFragmentInfo::anonymous();
@@ -466,7 +465,7 @@ impl OutsideMarker {
                 base_fragment_info,
                 style.clone(),
                 layout.fragments,
-                content_rect.as_physical_deprecated(containing_block),
+                content_size.to_physical_size(containing_block.style.writing_mode),
                 PhysicalBoxSides::zero(),
                 layout.specific_layout_info,
             )
@@ -608,15 +607,16 @@ impl BlockFormattingContext {
 
             // Create an `AnonymousFragment` that contains the fragments of the contents,
             // and place it as desired.
+            let align_fragment_size = LogicalVec2 {
+                inline: containing_block.inline_size(),
+                block: content_block_size,
+            };
             let align_fragment_rect = LogicalRect {
                 start_corner: LogicalVec2 {
                     inline: Au::zero(),
                     block: align_offset,
                 },
-                size: LogicalVec2 {
-                    inline: containing_block.inline_size(),
-                    block: content_block_size,
-                },
+                size: align_fragment_size,
             };
             positioning_context.adjust_static_position_of_hoisted_fragments(
                 &align_fragment_rect,
@@ -625,7 +625,7 @@ impl BlockFormattingContext {
             );
             let align_fragment = PositioningFragment::new_anonymous(
                 base.style.clone(),
-                align_fragment_rect.as_physical_deprecated(containing_block),
+                align_fragment_size.to_physical_size(containing_block.style.writing_mode),
                 std::mem::take(&mut flow_layout.fragments),
                 false, /* is_line_box */
             );
@@ -1348,6 +1348,10 @@ impl IndependentFormattingContext {
             effective_margin_inline_start,
         } = solve_margins(containing_block, &pbm, inline_size, justify_self);
 
+        let content_size = LogicalVec2 {
+            block: block_size,
+            inline: inline_size,
+        };
         let content_rect = LogicalRect {
             start_corner: LogicalVec2 {
                 block: pbm.padding.block_start + pbm.border.block_start,
@@ -1355,10 +1359,7 @@ impl IndependentFormattingContext {
                     pbm.border.inline_start +
                     effective_margin_inline_start,
             },
-            size: LogicalVec2 {
-                block: block_size,
-                inline: inline_size,
-            },
+            size: content_size,
         };
 
         let block_margins_collapsed_with_children = CollapsedBlockMargins::from_margin(&margin);
@@ -1374,7 +1375,7 @@ impl IndependentFormattingContext {
             base_fragment_info,
             self.base.style.clone(),
             layout.fragments,
-            content_rect.as_physical_deprecated(containing_block),
+            content_size.to_physical_size(containing_block_writing_mode),
             PhysicalBoxSides::from_pbm(&pbm, margin, containing_block_writing_mode),
             layout.specific_layout_info,
         )
@@ -1755,7 +1756,7 @@ impl IndependentFormattingContext {
             base_fragment_info,
             style.clone(),
             layout.fragments,
-            content_rect.as_physical_deprecated(containing_block),
+            content_size.to_physical_size(containing_block_writing_mode),
             PhysicalBoxSides::from_pbm(&pbm, margin, containing_block_writing_mode),
             layout.specific_layout_info,
         )
@@ -2549,7 +2550,6 @@ impl IndependentFormattingContext {
             size: logical_content_size,
         };
         let content_size = logical_content_size.to_physical_size(container_writing_mode);
-        let physical_content_rect = PhysicalRect::new(PhysicalPoint::zero(), content_size);
 
         let mut base_fragment_info = self.base_fragment_info();
         if content_box_sizes_and_pbm.depends_on_block_constraints {
@@ -2565,7 +2565,7 @@ impl IndependentFormattingContext {
             base_fragment_info,
             style.clone(),
             fragments,
-            physical_content_rect,
+            content_size,
             PhysicalBoxSides::from_pbm(pbm, margin, container_writing_mode),
             specific_layout_info,
         );
